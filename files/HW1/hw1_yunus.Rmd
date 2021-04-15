@@ -1,0 +1,210 @@
+---
+title: "HW1"
+author: "yunus emre erdogan"
+date: "14 04 2021"
+output: html_document
+---
+# **Introduction and Approach **
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+```
+The objection of this homework is that to investigate and to visualize some monthly macroeconomical data taken from EVDS platform. I want to analyze which parameters or realities affect the unemployment rate over last couple years in Turkey.To answer this i have a couple of assumptions on this parameters, which are consumer price index, producer price index, exchange rate of usd/try and interest rates.    
+
+```{r include=FALSE}
+library(zoo)
+library(plotly)
+library(ggplot2)
+library(readxl)
+library(dplyr)
+library(hrbrthemes)
+```
+
+## Unemployement Rates in Turkey 
+```{r eval=TRUE,echo=FALSE}
+is <- read_xlsx("unemploymentrate.xlsx")
+is_data<- data.frame(
+  date=as.yearmon(is$Tarih),
+  value=is$`TP YISGUCU2 G8`
+)
+
+p <- is_data %>%
+  ggplot( aes(x=date, y=value)) +
+  geom_area(fill="#69b3a2", alpha=0.5) +
+  geom_line(color="red") +
+  ylab("Unemployement Rates") +
+  xlab("Date")+
+  theme_ipsum()
+p <- ggplotly(p)
+p
+
+
+
+```
+It can be seen that there is a quarterly similarities throughout last decade, an increasing trend occurs mostly in new year's eve. Up until the winter of 2018, we see some periodic-like patterns on the plot, after 2018 Winter something is terrribly worsened.In our case , i guess that the inflation played a significant role on this change; therefore we can now investigate both consumer price index and producer price index trends so that we may come up with an assumption.   
+
+## CPI v PPI Graph
+```{r eval=TRUE,echo=FALSE}
+cpi<-read_xlsx("tufe.xlsx")
+cpi_data<-data.frame(
+  date = as.yearmon(cpi$Tarih),
+  value = cpi$`TP FG J0`
+)
+ppi<-read_xlsx("ufe.xlsx")
+ppi_data<-data.frame(
+  date=as.yearmon(ppi$Tarih),
+  value=ppi$`TP TUFE1YI T1`
+)
+t <-  ggplot() +
+      # blue plot
+      geom_line(data=ppi_data, aes(x=date, y=value),
+        colour="darkblue", size=1) +
+      geom_line(data=cpi_data, aes(x=date, y=value),
+        colour="red", size=1)+
+      xlab("Date")+
+      ylab("Price Index")
+     
+t
+
+```
+
+We can see that blue line is producer price index and red line is consumer price index. As expected, these two lines follow each other. One can easily notice that there is an increasing slope around January 2018 , we also see this effect in unemployement rate graph; hence there is a positive correlation between CPI,PPI and unemployement after 2018, we can assume it even without implementing a regression model.Therefore one of our assumptions is corrected , in which we stated that cpi and ppi related to inflation have increasing trends along with the unemployement rate.
+
+Now , we shall look at usd-try exchange rate and interest rates in Turkey in similar dates.
+
+## USD/TRY Exchange Rate
+```{r eval=TRUE, echo=FALSE}
+usd <- read_xlsx("usdtry.xlsx")
+usd_data<- data.frame(
+  date=as.yearmon(usd$Tarih),
+  value=usd$`TP DK USD A YTL`
+)
+
+p <- usd_data %>%
+  ggplot( aes(x=date, y=value)) +
+  geom_area(fill="tomato1", alpha=0.5) +
+  geom_line(color="black") +
+  ylab("USD/TRY Exchange Rate") +
+  xlab("Date")+
+  theme_ipsum()
+p <- ggplotly(p)
+p
+
+
+```
+## Interest Rates 
+```{r eval=TRUE,echo=FALSE}
+rate <- read_xls("intrate.xls")
+rate_data<- data.frame(
+  date=as.Date(rate$tarih,format="%d-%m-%y"),
+  value=rate$interest_rate
+)
+p <- rate_data %>%
+  ggplot( aes(x=date, y=value)) +
+  geom_area(fill="goldenrod2", alpha=0.5) +
+  geom_line(color="goldenrod2") +
+  ylab("Interest Rates") +
+  xlab("Date")+
+  theme_ipsum()
+p <- ggplotly(p)
+p
+
+```
+
+
+We again observe an abnormality arising from early 2018 both in exchange rate and interest rate graphs. These abnormalities push the unemployement rate to the sky.The interest rates data i acquired from is here:[https://fred.stlouisfed.org/series/INTDSRTRM193N]
+We can conclude that the combining effects of inflation,exchange rate,interest rate had huge role on increasing the unemployement rate. I personally checked the news in the unfortunate early 2018, and i saw that the country had a war operation, the journalist imprisonements were rising, opposition party delagations were passive , the state of emergency was on , the juridical and economic tools were been eroded.It is quite complicated to deduce a correct hypothesis without considering the events around that time. For the sake of the task , we can just focus on the basic parameters that i mentioned already.  
+
+Last but not least, we shall look at some searching trends in Google so that we may notice a parallelism with the unemployement rates.
+
+
+## Google Trends for "işsizlik"
+```{r eval=TRUE,echo=FALSE}
+tr <- read_xlsx("issizlik.xlsx")
+
+tr_data<- data.frame(
+  a<-as.factor(tr$Tarih),
+  abis<-strptime(a,format="%Y-%m-%d"),
+  b<-as.Date(abis,format="%Y-%m-%d"), 
+  date=as.Date(tr$Tarih,format="%Y-%m-%d"),
+  value=tr$trend
+)
+
+p <- tr_data %>%
+  ggplot( aes(x=date, y=value)) +
+  geom_area(fill="plum1", alpha=0.5) +
+  geom_line(color="darkcyan") +
+  ylab("Search for 'issizlik' as percentages") +
+  xlab("Date")+
+  theme_ipsum()
+p <- ggplotly(p)
+p
+
+
+```
+
+We observe that the search for "işsizlik" rises throught the year 2018. We have a one big abnormality in March 2020,it is the Covid lockdown starting month in Turkey, people desperately searched for jobs due to the extreme conditions. Companies fired some of their employees, hence the need for a job search occured.This need directly affected the unemployement rate accordingly. 
+
+## Google Trends for "enflasyon"
+
+```{r eval=TRUE,echo=FALSE}
+enf <- read.csv("enflasyon.csv")
+
+enf_data<- data.frame(
+  a<-as.factor(enf$Tarih),
+  abis<-strptime(a,format="%Y-%m-%d"),
+  b<-as.Date(abis,format="%Y-%m-%d"), 
+  date=as.Date(enf$Tarih,format="%Y-%m-%d"),
+  value=enf$trend
+)
+
+p <- enf_data %>%
+  ggplot( aes(x=date, y=value)) +
+  geom_area(fill="violetred4", alpha=0.5) +
+  geom_line(color="gray7") +
+  ylab("Search for 'enflasyon' as percentages") +
+  xlab("Date")+
+  theme_ipsum()
+p <- ggplotly(p)
+p
+
+
+```
+
+Trending results of the word "enflasyon" is a bit different than other graphs.Nevertheless , one of the main causes of unemployement which is inflation was popular in Google search. There is an incredible peak in last month of the unfortunate year 2018. We can see a seasonal pattern in this graph , every June and January people have increased their searches of this word.
+
+## Google Trends for "kariyer.net"
+
+```{r eval=TRUE,echo=FALSE}
+
+kar <- read.csv("kariyernet.csv")
+
+kar_data<- data.frame(
+  a<-as.factor(kar$Tarih),
+  abis<-strptime(a,format="%Y-%m-%d"),
+  b<-as.Date(abis,format="%Y-%m-%d"), 
+  date=as.Date(kar$Tarih,format="%Y-%m-%d"),
+  value=kar$trend
+)
+
+p <- kar_data %>%
+  ggplot( aes(x=date, y=value)) +
+  geom_area(fill="linen", alpha=0.5) +
+  geom_line(color="sienna") +
+  ylab("Search for 'kariyer.net' as percentages") +
+  xlab("Date")+
+  theme_ipsum()
+p <- ggplotly(p)
+p
+```
+
+One of the main job search sites in Turkey is kariyer.net .In 2019 , there is a huge peak, but the site searches generally remain around 50 level.By the start of the pandemic lockdown, we can see that people desperately gave up looking for a job.This can also been interpreted as staying at home, having multiple depressions;hence rising in unemployement rates.
+
+## Conclusion
+
+The internal and external factors have huge impact on the unemployement rates, but today we examined CPI,PPI,exhange and interest rates of Turkey in last few years. People also acted according to these changes ; therefore they looked more and more for a job. This state of desperation and deadlock seem like will continue upcoming years , i hope i may make an ARIMA analysis on this topic so we can share some thoughts on it aswell. See you next time !  
+
+
+
+
+
