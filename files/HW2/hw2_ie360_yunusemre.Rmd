@@ -1,0 +1,282 @@
+---
+title: "Time Series Regression Analysis and Forecasting"
+author: "yunus emre erdogan"
+date: "07 05 2021"
+output:
+  html_document:
+    df_print: paged
+  prettydoc::html_pretty:
+    theme: architect
+---
+```{r include=FALSE}
+library(zoo)
+library(plotly)
+library(ggplot2)
+library(readxl)
+library(dplyr)
+library(tidyr)
+library(hrbrthemes)
+library(lubridate)
+library(data.table)
+library(forecast)
+library(fpp)
+library(xts)
+library(tidyverse)
+library(caret)
+library(leaps)
+library(gridExtra)
+```
+
+
+## Introduction and Understanding the Problem ##
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+  The goal of this assignment is to perform a monthly based time series analysis on clothing and footwear consumer price index data taking from [https://evds2.tcmb.gov.tr/index.php?/evds/serieMarket], after analysing the data we want to forecast the cpi of clothing-footwear in May 2021 in Turkey. To forecast and process the analysis , one needs to decompose the time series into trend, seasonal and residual components. Additional to decomposing the given cpi data, one can add some relevant regressors to get a better multilinear regression so that our forecasting task result appears to be valid and consistent with some statistical testings. Since we want to get a white gaussian noise after decomposing, we have to careful dealing with autocorrelations of lagged operators; hence we may encounter with some statistical issues which are to be solved.
+  
+## Data Manipulation and Visualization ##
+First things first i imported the neccessary data from above site : 
+
+```{r eval=TRUE,echo=FALSE}
+clothing <- read_xlsx("cpi_clothing.xlsx")
+ggplot( clothing,aes(x=as.yearmon(Date), y=CPI)) +
+  geom_line(color="red") +
+  ylab("Clothing and Footwear CPI") +
+  xlab("Date")
+  
+```
+
+The data is taken from between 2012-01 and 2021-04 , without further analysing one can immediately notice that the cpi has an almost linearly increasing trend and a seasonal repetition at June and December in which there may be a seasonal outlet sale. We also see some anormal peaks at 2018-Dec and 2019-Dec depending on some external parameters which we will discuss and add to our model. 
+
+We can observe that the data has an increasing high variance along the date axis, therefore i took the logarithm of the cpi values. By doing this we can avoid some scale disturbances in autocorrelation and fitting results.Therefore i created a data.table in which we contain our present data and will add some additional regressors and lagged operators.
+```{r eval=TRUE,echo=TRUE}
+cpi=data.table(date=as.character(clothing$Date),price=as.numeric(log(clothing$CPI)))
+
+```
+We can now start with investigating the trend component of the clothing-footwear cpi data , to do that i created a trend column in data.table.
+```{r eval=TRUE,echo=TRUE}
+cpi[,trend:=1:.N]
+
+```
+
+We can now linearly fit our model and check the results :
+```{r eval=TRUE,echo=TRUE}
+fit <- lm(price~trend, data = cpi)
+summary(fit)
+checkresiduals(fit,lag=12)
+```
+
+As we can see our R-squared value is high , the the trend parameter is significant since its p-value is too low than 0.05. The residuals seems to have almost zero mean but not exactlty a constant variance. We have a highly correlated model , the Breusch-Godfrey test tells us definitely rejecting null hypothesis to deal with the serial correlation issue.
+The trending component and real data are plotted on the same graph:
+```{r eval=TRUE,echo=FALSE}
+cpi_general_trend = cpi
+cpi_general_trend[,trend_constant:=predict(fit,cpi)]
+
+
+
+  ggplot( cpi_general_trend, aes(x=as.yearmon(date))) +
+  geom_line(aes(y=price,color='real')) + 
+  geom_line(aes(y=trend_constant,color='trend'))+
+  ylab("CPI") +
+  xlab("Date")
+```
+
+The next step is to create a month variable in the data table so that we can get the notion of seasonal component and then perform the linear regression :
+```{r eval=TRUE,echo=FALSE,warning=FALSE}
+
+month=seq(1,12,by=1)
+cpi_general_trend=cbind(cpi_general_trend,month)
+cpi_general_trend[,month:=as.character(lubridate::month(cpi_general_trend$month,label=T))]
+
+```
+
+```{r eval=TRUE,echo=TRUE}
+ts_reg=lm(price~trend+month,cpi_general_trend)
+summary(ts_reg)
+
+```
+
+```{r eval=TRUE,echo=FALSE}
+cpi_monthly <- cpi_general_trend
+cpi_monthly[,month_constant:=predict(ts_reg,cpi_general_trend)]
+```
+
+
+By adding seasonality component , we significantly improved the R-squared value up to 0.98 range.Looking just to R-squared value is not a sufficient way, we need to check the residuals and correlation relations :
+```{r eval=TRUE,echo=FALSE}
+checkresiduals(ts_reg,lag=12)
+```
+
+The autocorrelation values are slightly improved but it still has a too small p-value, the residual resemblence to gaussian distribution is not good. Before going further manipulations , we should take a look at our current fitted vs real graph :
+
+```{r eval=TRUE,echo=FALSE}
+ggplot(cpi_monthly,aes(x=as.yearmon(date))) +
+  geom_line(aes(y=price,color='real')) + 
+  geom_line(aes(y=month_constant,color='monthly trend'))+
+  xlab("Date")+
+  ylab("Cpi")
+
+ggplot(cpi_monthly,aes(x=as.yearmon(date))) +
+  geom_line(aes(y=month_constant-trend_constant,color='seasonality'))+
+  xlab("Date")+
+  ylab("Cpi")
+```
+
+We clearly observe a better fit but the autocorrelation and gaussian distribution issues are still on the table , therefore we have to come up with new additional paramaters which i chosed them as usd/try exhange rate , consumer loan interest rate , producer price index on textiles, consumer confidence index and a survey asking whether the consumers have increased their spending on clothing.The data are monthly and taken from same site as in the cpi case.
+
+```{r eval=TRUE,echo=FALSE}
+
+confidence <-read_xlsx("consumerconfidenceindex.xlsx")
+interest <-read_xlsx("consumerloans.xlsx")
+producing <-read_xlsx("ppi_textiles.xlsx")
+survey <-read_xlsx("spendingmoneyonclothing.xlsx")
+exchange <-read_xlsx("usdtry.xlsx")
+
+```
+
+```{r eval=TRUE,echo=FALSE}
+multi_ts <- cpi_general_trend
+multi_ts[,confidence:=confidence$Confidence]
+multi_ts[,textiles:=producing$Textiles]
+multi_ts[,anket:=survey$Survey]
+multi_ts[,exchange:=exchange$Exchange]
+multi_ts[,interestrate:=interest$Interest]
+```
+
+Without applying a stepwise regression which we will, we can discuss the effects of additional regressors :
+
+```{r eval=TRUE,echo=TRUE}
+mult_reg=lm(price~trend+month+confidence+textiles+anket+exchange+interestrate,multi_ts)
+summary(mult_reg)
+checkresiduals(mult_reg,lag=12)
+```
+
+```{r eval=TRUE,echo=FALSE}
+cpi_multi <- cpi_monthly
+cpi_multi[,mult_constant:=predict(mult_reg,multi_ts)]
+```
+
+
+As we can see, adding regressors improved the R-squared value,residuals'resemblence to gaussian and autocorrelation, but some of the parameters are not effective enough. We can omit them from the model after testing anova result of between the original and omitted version of the model.The calculations suggested that we can omit them from the model.But before omitting we should look at fitted vs real graph and newly added parameters vs residuals graphs:
+
+```{r eval=TRUE,echo=FALSE}
+
+ggplot(cpi_multi,aes(x=as.yearmon(date))) +
+  geom_line(aes(y=price,color='real')) + 
+  geom_line(aes(y=mult_constant,color='multi trend'))+
+  xlab("Date")+
+  ylab("Cpi")
+```
+```{r eval=TRUE,echo=FALSE}
+df <- as.data.frame(cpi_multi)
+df[,"Residuals"] <- as.numeric(residuals(mult_reg))
+p1 <- ggplot(df, aes(x=exchange, y=Residuals)) +
+  geom_point()
+p2 <- ggplot(df, aes(x=confidence, y=Residuals)) +
+  geom_point()
+p3 <- ggplot(df, aes(x=interestrate, y=Residuals)) +
+  geom_point()
+p4 <- ggplot(df, aes(x=textiles, y=Residuals)) +
+  geom_point()
+p5 <- ggplot(df, aes(x=anket, y=Residuals)) +
+  geom_point()
+
+gridExtra::grid.arrange(p1, p2, p3, p4,p5,nrow=3,ncol=2)
+```
+
+The new current fitted model mimics very well the real data, we also can observe that the zero mean and uncorrelatedness of the regressors with the residuals assumption checks.Eventhough interestrate and confidence parameters seem to focus on the one side of the graph , we still see random patterns.
+
+The fitted vs residuals and fitted vs real cpi graphs are given : 
+
+```{r eval=TRUE,echo=FALSE, warning=FALSE}
+ggplot(mult_reg,aes(x=fitted(mult_reg),y=residuals(mult_reg)))+geom_point()+
+  geom_smooth()
+
+
+
+ggplot(mult_reg,aes(x=fitted(mult_reg),y=price))+geom_point()+
+  geom_abline(slope = 1,intercept = 0 )
+
+
+```
+
+As expected the fitted vs real cpi graph lies on the y=x line and the residual behaviors are nearly along the zero which is desired.We can also look at monthly residuals data in which we can compare residual behaviors on monthly basis.
+
+```{r eval=TRUE,echo=FALSE,warning=FALSE}
+
+ggplot(mult_reg,aes(x=fitted(mult_reg),y=residuals(mult_reg)))+geom_point()+
+  geom_smooth() + facet_wrap(~month)
+
+```
+
+As expected the last months of the year which may corresponds to outlet sale times differ from the zero mean line.
+
+We saw that even if we add some parameters we ended up having an highly serial autocorrelation between consecutive time spans. Therefore i will add 2 lagged operators to the model, one of them is lag(-1) shifting the residuals backwards by 1 time iteration and the other is lag(-2) shifting the residuals backwards by 2 time iterations. I omitted the survey and confidence level data from the model due to them having too small impact on the model. Here is the fitted model with 2 lagged operators, trending , seasonality and 3 remaining regressors : 
+
+```{r eval=TRUE,echo=TRUE}
+lagged_cpi = cpi_multi
+lagged_cpi[,lagek:=shift(residuals(mult_reg),-1)]
+lagged_cpi[,lagek_2:=shift(residuals(mult_reg),-2)]
+
+lagged_reg = lm(price~trend+month+textiles+lagek+lagek_2+exchange+interestrate,lagged_cpi)
+summary(lagged_reg)
+
+checkresiduals(lagged_reg,lag=12)
+```
+
+The R-squared value is at the highest its ever been which is a good sign. The lagged operators' p-value is quite low as desired. The errors resemble almost a white gaussian noise distribution except points which we have couple peaks. The gaussian distribution assumption also holds as we can see. The main goal adding 2 lagged operators was to get rid of the serial autocorrelation and we also achieved this since the Breusch-Godfrey test's p-value is bigger than 0.05 and we fail to reject the null hypothesis.
+
+
+# Forecasting #
+
+The initial goal was to forecast the next month's clothing-footwear price index in Turkey , hence we modeled a multilinear regression model and decomposed the time series into its components. Now, its time to forecast the future ! Firstly,we add a new row to the data table and we have to interpolate the lagged operators' and regressors' values of the next month since their weights are not determined yet. I took the point forecast values of them.
+
+
+```{r eval=TRUE,echo=FALSE,warning=FALSE,include=FALSE}
+lagged_new_cpi=rbind(lagged_cpi,data.table(month="May"),fill=T)
+lagged_new_cpi[113,trend:=113]
+lagged_new_cpi[113,date:="2021-05"]
+
+predict(lagged_new_cpi$textiles)
+predict(lagged_new_cpi$exchange)
+predict(lagged_new_cpi$interestrate)
+predict(lagged_new_cpi$lagek)
+predict(lagged_new_cpi$lagek_2)
+
+lagged_new_cpi[113,textiles:=666.3114]
+lagged_new_cpi[113,exchange:=8.269152]
+lagged_new_cpi[113,interestrate:=23.85412]
+lagged_new_cpi[113,textiles:=666.3114]
+lagged_new_cpi[112:113,lagek:=-0.02974144]
+lagged_new_cpi[111:113,lagek_2:=-0.02974144]
+```
+
+
+```{r eval=TRUE,echo=FALSE,include=FALSE}
+predict(lagged_reg,lagged_new_cpi[is.na(mult_constant)==T])
+lagged_new_cpi[is.na(mult_constant)==T,mult_constant:=predict(lagged_reg,lagged_new_cpi[is.na(mult_constant)==T])]
+```
+
+The forecasted cpi value is 5.705673 but we have to take exponential of this number since at the start we took its logarithm.Therefore the next month's clothing and footwear price index appers to be 300.5678 .It seems we have an increasing trend. Here is the forcestad model with actual values :
+
+```{r eval=TRUE,echo=FALSE,warning=FALSE}
+cols <- c("predicted" = "orange", "actual" = "blue")
+ggplot() + 
+  geom_line(data = lagged_new_cpi, aes(x = as.yearmon(date), y = exp(mult_constant),color = "predicted")) +
+  geom_line(data = lagged_new_cpi, aes(x = as.yearmon(date), y = exp(price),color = "actual")) +
+  xlab('time') +
+  ylab('log_sales') +
+  scale_color_manual(values = cols)
+
+```
+
+## Conclusion ##
+
+The moral of the story is that we model our multi linear regression with some selected regressors but we have to decompose the data into trend,seasonality and residual components since it is a time series data.During the process we possibly encounter with a serial autocorrelation issue then we apply some selected lagged operators . After all , we simply forecast the desired future dates considering the target variable. Along the process , i also tried to add an outlet sale factor variable which corresponds to 1 in June and December months other than zero. Since the seasonality variable (month) has already covered these months , this outlet-sale-factor did not work. I also tried to add the covid factor which corresponds to 1 from 2020-03 to 2021-04 and remaining dates are labeled zero as an additional column. This covid factor effect had same destiny with the survey and the confidence level parameters , in which they all ended up being unsignificant. Returning to the main result , we can see that an increasing trend will happen in May 2021 in Turkey in terms of the clothing-footwear price index considering the usd/try exchange rates,consumer loan interest rates and producing price index of textiles.
+
+# References #
+
+[https://evds2.tcmb.gov.tr/index.php?/evds/serieMarket]
+
+
+
