@@ -256,14 +256,15 @@ The initial goal was to forecast the next month's clothing-footwear price index 
 
 ```{r eval=TRUE,echo=FALSE,warning=FALSE,include=FALSE}
 lagged_new_cpi=rbind(lagged_cpi,data.table(month="May"),fill=T)
+
 lagged_new_cpi[113,trend:=113]
 lagged_new_cpi[113,date:="2021-05"]
-
 predict(lagged_new_cpi$textiles)
 predict(lagged_new_cpi$exchange)
 predict(lagged_new_cpi$interestrate)
 predict(lagged_new_cpi$lagek)
 predict(lagged_new_cpi$lagek_2)
+predict(lagged_new_cpi$lag11)
 
 lagged_new_cpi[113,textiles:=666.3114]
 lagged_new_cpi[113,exchange:=8.269152]
@@ -271,6 +272,7 @@ lagged_new_cpi[113,interestrate:=23.85412]
 lagged_new_cpi[113,textiles:=666.3114]
 lagged_new_cpi[112:113,lagek:=-0.02974144]
 lagged_new_cpi[111:113,lagek_2:=-0.02974144]
+lagged_new_cpi[102:113,lag11:=-0.02974144]
 ```
 
 
@@ -279,7 +281,7 @@ predict(lagged_reg,lagged_new_cpi[is.na(mult_constant)==T])
 lagged_new_cpi[is.na(mult_constant)==T,mult_constant:=predict(lagged_reg,lagged_new_cpi[is.na(mult_constant)==T])]
 ```
 
-The forecasted cpi value is 5.705673 but we have to take exponential of this number since at the start we took its logarithm.Therefore the next month's clothing and footwear price index appers to be 300.5678 .It seems we have an increasing trend. Here is the forcestad model with actual values :
+The forecasted cpi value is 5.714807  but we have to take exponential of this number since at the start we took its logarithm.Therefore the next month's clothing and footwear price index appers to be 303.3257 .It seems we have an increasing trend. Here is the forcestad model with actual values :
 
 ```{r eval=TRUE,echo=FALSE,warning=FALSE}
 cols <- c("predicted" = "orange", "actual" = "blue")
