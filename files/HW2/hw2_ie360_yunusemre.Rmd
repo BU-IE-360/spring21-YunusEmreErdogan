@@ -167,7 +167,7 @@ ggplot(cpi_multi,aes(x=as.yearmon(date))) +
   xlab("Date")+
   ylab("Cpi")
 ```
-```{r eval=TRUE,echo=FALSE}
+```{r eval=TRUE,echo=FALSE,warning=FALSE}
 df <- as.data.frame(cpi_multi)
 df[,"Residuals"] <- as.numeric(residuals(mult_reg))
 p1 <- ggplot(df, aes(x=exchange, y=Residuals)) +
