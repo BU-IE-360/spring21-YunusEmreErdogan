@@ -25,6 +25,7 @@ library(tidyverse)
 library(caret)
 library(leaps)
 library(gridExtra)
+library(GGally)
 ```
 
 
@@ -143,6 +144,26 @@ multi_ts[,exchange:=exchange$Exchange]
 multi_ts[,interestrate:=interest$Interest]
 ```
 
+```{r eval=TRUE,echo=FALSE}
+
+visual=data.table(clothing)
+visual[,confidencelevel:=confidence$Confidence]
+visual[,textiles:=producing$Textiles]
+visual[,anket:=survey$Survey]
+visual[,exchange:=exchange$Exchange]
+visual[,interestrate:=interest$Interest]
+visual[ ,`:=`(Date = NULL)] 
+
+```
+
+Here is the overall look into the selected parameter data : 
+
+```{r eval=TRUE,echo=FALSE,warning=FALSE}
+
+ggpairs(visual)
+```
+
+
 Without applying a stepwise regression which we will, we can discuss the effects of additional regressors :
 
 ```{r eval=TRUE,echo=TRUE}
@@ -211,14 +232,15 @@ ggplot(mult_reg,aes(x=fitted(mult_reg),y=residuals(mult_reg)))+geom_point()+
 
 As expected the last months of the year which may corresponds to outlet sale times differ from the zero mean line.
 
-We saw that even if we add some parameters we ended up having an highly serial autocorrelation between consecutive time spans. Therefore i will add 2 lagged operators to the model, one of them is lag(-1) shifting the residuals backwards by 1 time iteration and the other is lag(-2) shifting the residuals backwards by 2 time iterations. I omitted the survey and confidence level data from the model due to them having too small impact on the model. Here is the fitted model with 2 lagged operators, trending , seasonality and 3 remaining regressors : 
+We saw that even if we add some parameters we ended up having an highly serial autocorrelation between consecutive time spans. Therefore i will add 3 lagged operators to the model, one of them is lag(-1) shifting the residuals backwards by 1 time iteration and the other is lag(-2) shifting the residuals backwards by 2 time iterations and the last one is 11 lag shift backwards(lag(-11)). I omitted the survey and confidence level data from the model due to them having too small impact on the model. Here is the fitted model with 2 lagged operators, trending , seasonality and 3 remaining regressors : 
 
 ```{r eval=TRUE,echo=TRUE}
 lagged_cpi = cpi_multi
 lagged_cpi[,lagek:=shift(residuals(mult_reg),-1)]
 lagged_cpi[,lagek_2:=shift(residuals(mult_reg),-2)]
+lagged_cpi[,lag11:=shift(residuals(mult_reg),-11)]
 
-lagged_reg = lm(price~trend+month+textiles+lagek+lagek_2+exchange+interestrate,lagged_cpi)
+lagged_reg = lm(price~trend+month+textiles+lagek+lagek_2+lag11+exchange+interestrate,lagged_cpi)
 summary(lagged_reg)
 
 checkresiduals(lagged_reg,lag=12)
