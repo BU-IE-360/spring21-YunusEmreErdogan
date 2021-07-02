@@ -3,8 +3,8 @@ title: "IE Project"
 author: "yunus emre erdogan , ugur uzunoglu"
 date: "02 07 2021"
 output:
-  html_document: default
   pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -757,6 +757,9 @@ We succesfully identified each product's statistical characteristics and their r
 ![the competition results.As Group2 we ended up in the 6th place](C:\Users\yeerd\OneDrive\Masaüstü\IE_project\competition.jpeg)
 
 # Code 
+
+[Here is the R-script code](https://github.com/BU-IE-360/spring21-YunusEmreErdogan/blob/gh-pages/files/Project/group2_project_report.Rmd)
+
 
 
 
