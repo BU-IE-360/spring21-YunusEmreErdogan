@@ -21,3 +21,9 @@
 [Here](files/HW3/IE360_Spring21_HW3.pdf) is the task to complete.
 
 [Here](files/HW3/yunusemre_hw3.html) is ar,ma and arma models on electricity consumption data.
+
+## Project
+
+[Here](files/Project/Project_Description.pdf) is the task to complete.
+
+[Here](files/Project/group2_project_report.html) is our model and estimation solution to the Trendyol's 9 diverse products.
