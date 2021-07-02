@@ -22,6 +22,13 @@
 
 [Here](files/HW3/yunusemre_hw3.html) is ar,ma and arma models on electricity consumption data.
 
+## Homework4-5
+
+[Here](files/HW4-5/IE360_Spring21_HW4_5.pdf) is the task to complete.
+
+[Here](files/HW4-5/IE360_Spring21_HW4-5.html) is alternative forecasting strategies for the
+project.
+
 ## Project
 
 [Here](files/Project/Project_Description.pdf) is the task to complete.
